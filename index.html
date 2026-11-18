@@ -46,12 +46,14 @@ button:hover{background:var(--btnh);transform:translateY(-2px);box-shadow:0 6px 
 #back{position:fixed;top:16px;left:20px;z-index:5}
 #bar span{font-size:18px}
 }
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.and .nm{font-size:clamp(5px,10cqw,10px);padding:2% 1%;line-height:1.15;background:rgba(110,50,80,.4)}
 .col{display:flex;flex-direction:column;gap:12px;width:min(360px,100%);align-items:stretch}
 input{font:inherit;color:var(--ink);background:var(--btn);border:1.5px solid var(--gold);border-radius:14px;padding:12px;text-align:center;letter-spacing:.3em;text-transform:uppercase;width:100%}
 button:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none}
 #res{white-space:pre-line}
 #rs{display:contents}
-</style></head><body>
+</style></head><body><script>if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('and')</script>
 <section class="screen on" id="title">
 <div class="deco" id="deco"></div><div class="orn">✦ ✦ ✦</div><h1>카드 맞추기</h1><p class="sub">같은 그림의 카드를 찾아보세요</p>
 <div class="lv" id="lv"></div>
