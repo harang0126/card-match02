@@ -132,11 +132,11 @@ async function home(msg){
 }
 async function mkRoom(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let c;
  try{for(let k=0;k<5;k++){c=Array.from({length:4},()=>A[Math.random()*A.length|0]).join('');if(!(await rref(c).get()).exists)break}
- await rref(c).set({host:ME,level:0,status:'lobby',created:Date.now()});await enter(c,await saveName())}catch(e){home('방을 만들 수 없어요. 공유 권한을 확인해 주세요.')}}
+ await rref(c).set({host:ME,level:0,max:4,status:'lobby',created:Date.now()});await enter(c,await saveName())}catch(e){home('방을 만들 수 없어요. 공유 권한을 확인해 주세요.')}}
 async function joinRoom(c){if(c.length!==4)return home('방 코드 4자리를 입력해 주세요.');
  try{const r=await rref(c).get();if(!r.exists)return home('없는 방이에요.');const d=r.data();
   const ps=(await pcol(c).get()).docs.map(x=>x.id);
-  if(!ps.includes(ME)){if(d.status!=='lobby')return home('이미 시작된 방이에요.');if(ps.length>=5)return home('방이 가득 찼어요. (최대 5명)')}
+  if(!ps.includes(ME)){if(d.status!=='lobby')return home('이미 시작된 방이에요.');if(ps.length>=(d.max||4))return home('방이 가득 찼어요.')}
   await enter(c,await saveName())}catch(e){home('참가할 수 없어요. 공유 권한을 확인해 주세요.')}}
 async function enter(c,n){exit();MP={code:c,room:null,players:[],names:{},custom:{},gid:null,shown:null,loaded:false};
  const pr=DB.doc('rooms/'+c+'/players/'+ME),ex=await pr.get();if(!ex.exists)await pr.set({joinedAt:Date.now(),name:n||''});else if(n)await pr.update({name:n});
@@ -173,20 +173,21 @@ async function mpClick(i){const r=MP&&MP.room;if(!r||r.status!=='playing'||r.ord
  if(MP)MP.busy=false}
 $('skip').onclick=()=>{const r=MP&&MP.room;if(r)rref(MP.code).update({flipped:[],streak:0,turnStart:Date.now(),turn:(r.turn+1)%r.order.length}).catch(()=>{})};
 const TL=30;
-setInterval(()=>{const r=MP&&MP.room;if(!r||r.status!=='playing'||!MP.gid||MP.busy)return;const cur=r.order[r.turn],rem=r.turnStart?Math.ceil(TL-(Date.now()-r.turnStart)/1000):TL;
+setInterval(()=>{const r=MP&&MP.room;if(!r||r.status!=='playing'||!MP.gid||MP.busy)return;const cur=r.order[r.turn];if(MP.tsKey!==r.turnStart){MP.tsKey=r.turnStart;MP.tsAt=Date.now()}const rem=Math.ceil(TL-(Date.now()-MP.tsAt)/1000);
  $('mv').textContent=(cur===ME?'내 차례 ✦':nm(cur)+'님의 차례')+' · '+Math.max(0,rem);
  const late=cur===ME?rem<=0:(r.host===ME&&rem<=-4);
  if(late&&MP.passKey!==r.turnStart){MP.passKey=r.turnStart;rref(MP.code).update({flipped:[],streak:0,turn:(r.turn+1)%r.order.length,turnStart:Date.now()}).catch(()=>{})}},250);
 function lobby(){if(document.activeElement&&document.activeElement.id==='myn')return;const r=MP.room,host=r.host===ME,b=$('rb');
- b.innerHTML=`<div class="sub" style="margin:0">방 코드</div><div style="font-size:42px;letter-spacing:.2em;font-weight:700">${esc(MP.code)}</div><div id="pl" style="display:grid;gap:6px"></div><input id="myn" maxlength="8" placeholder="닉네임 변경" style="letter-spacing:0;text-transform:none"><div class="sub" style="margin:0">${host?'난이도 (방장만 변경할 수 있어요)':'난이도 (방장이 정해요)'}</div><div class="lv" id="ll"></div><button id="st"></button><button id="lq">나가기</button>`;
- MP.players.forEach(id=>{const d=document.createElement('div');d.textContent=(id===r.host?'👑 ':'')+nm(id)+(id===ME?' (나)':'');d.style.cssText='padding:8px;border:1.5px solid var(--gold);border-radius:12px;background:var(--btn)';$('pl').appendChild(d)});
+ b.innerHTML=`<div class="sub" style="margin:0">방 코드</div><div style="font-size:42px;letter-spacing:.2em;font-weight:700">${esc(MP.code)}</div><div id="pl" style="display:grid;gap:6px"></div><input id="myn" maxlength="8" placeholder="닉네임 변경" style="letter-spacing:0;text-transform:none"><div class="sub" style="margin:0">${host?'난이도 (방장만 변경할 수 있어요)':'난이도 (방장이 정해요)'}</div><div class="lv" id="ll"></div><div class="sub" style="margin:0">${host?'인원 (방장만 변경할 수 있어요)':'인원 (방장이 정해요)'}</div><div id="mx" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center"></div><button id="st"></button><button id="lq">나가기</button>`;
+ MP.players.forEach((id,i)=>{const d=document.createElement('div');d.textContent=(i+1)+'. '+(id===r.host?'👑 ':'')+nm(id)+(id===ME?' (나)':'');d.style.cssText='padding:8px;border:1.5px solid var(--gold);border-radius:12px;background:var(--btn)';$('pl').appendChild(d)});
  LV.forEach((l,i)=>{const x=document.createElement('button');x.textContent=l.n;if(i===r.level)x.style.background='var(--b2)';x.disabled=!host;x.onclick=()=>rref(MP.code).update({level:i}).catch(()=>{});$('ll').appendChild(x)});
- const st=$('st');$('myn').value=MP.custom[ME]||'';$('myn').onchange=()=>{const v=$('myn').value.trim().slice(0,8);DB.doc('rooms/'+MP.code+'/players/'+ME).update({name:v}).catch(()=>{});if(v)profRef().set({name:v}).catch(()=>{})};st.textContent=host?(MP.players.length<2?'2명 이상 모이면 시작할 수 있어요':'게임 시작'):'방장이 시작하길 기다리는 중';st.disabled=!host||MP.players.length<2;st.onclick=startMp;$('lq').onclick=leave}
-function startMp(){const r=MP.room;if(r.host!==ME)return;const l=LV[r.level],ids=shuf([...Array(16).keys()]).slice(0,l.p),order=MP.players.slice(0,5);
+ const mxv=r.max||4;[2,3,4,5,6,7,8].forEach(n=>{const x=document.createElement('button');x.textContent=n+'명';x.style.padding='8px 12px';if(n===mxv)x.style.background='var(--b2)';x.disabled=!host||n<MP.players.length;x.onclick=()=>rref(MP.code).update({max:n}).catch(()=>{});$('mx').appendChild(x)});const st=$('st');$('myn').value=MP.custom[ME]||'';$('myn').onchange=()=>{const v=$('myn').value.trim().slice(0,8);DB.doc('rooms/'+MP.code+'/players/'+ME).update({name:v}).catch(()=>{});if(v)profRef().set({name:v}).catch(()=>{})};st.textContent=host?(MP.players.length<2?'2명 이상 모이면 시작할 수 있어요':'게임 시작'):'방장이 시작하길 기다리는 중';st.disabled=!host||MP.players.length<2;st.onclick=startMp;$('lq').onclick=leave}
+async function startMp(){const r=MP.room;if(r.host!==ME)return;let p0=MP.players;try{p0=(await pcol(MP.code).orderBy('joinedAt').get()).docs.map(x=>x.id)}catch(e){}
+ const l=LV[r.level],ids=shuf([...Array(16).keys()]).slice(0,l.p),order=shuf(p0.slice(0,r.max||4));if(order.length<2)return;
  rref(MP.code).update({status:'playing',gid:Date.now(),deck:shuf([...ids,...ids]),order,turn:0,streak:0,turnStart:Date.now(),flipped:[],matched:[],scores:Object.fromEntries(order.map(o=>[o,0]))}).catch(()=>{})}
 function win(r){const mx=Math.max(...r.order.map(i=>r.scores[i]));
  $('res').textContent='우승: '+r.order.filter(i=>r.scores[i]===mx).map(nm).join(', ')+'\n'+r.order.map(i=>nm(i)+' '+r.scores[i]+'쌍').join('\n');
- $('again').style.display=r.host===ME?'':'none';$('again').textContent='방으로 돌아가기';$('wt').textContent='완성!';$('home').textContent='나가기';show('win')}
+ $('again').style.display='';$('home').style.display='';$('again').textContent='다시 한 번';$('wt').textContent='완성!';$('home').textContent='나가기';show('win')}
 async function leave(){const c=MP&&MP.code,r=MP&&MP.room,ps=MP?MP.players:[];exit();show('title');
  try{if(c&&r&&r.status==='lobby'){if(r.host===ME){await Promise.all(ps.map(id=>DB.doc('rooms/'+c+'/players/'+id).delete()));await rref(c).delete()}else await DB.doc('rooms/'+c+'/players/'+ME).delete()}
   if(!r||r.status!=='playing')await lastRef().delete()}catch(e){}}
